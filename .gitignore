@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Large simulation data
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Keep the small sample dataset
+!data/sample/
+!data/sample/**
+
+# Generated results
+results/finite_size_scaling/*
+
+# Operating-system files
+.DS_Store
+Thumbs.db
