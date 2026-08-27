@@ -1,0 +1,44 @@
+{
+  "simulation": "general_homodyne",
+  "lattice": {
+    "type": "square",
+    "dimensions": [30, 40, 50, 60, 70],
+    "weights": [1.0]
+  },
+  "measurement": {
+    "probability_grid": {
+      "start": 0.0,
+      "stop": 1.0,
+      "num": 200,
+      "endpoint": true
+    },
+    "runs": [
+      {
+        "squeezing": 1.0,
+        "angles": [1.5707963267948966]
+      },
+      {
+        "squeezing": 0.1,
+        "angles": [0.0, 0.7853981633974483, 1.5707963267948966]
+      }
+    ]
+  },
+  "sampling": {
+    "realizations": 500,
+    "random_seed": 2026
+  },
+  "parallelization": {
+    "max_workers": 50,
+    "reserve_cores": 2,
+    "memory_budget_gb": 140.0,
+    "batch_size": 1,
+    "pre_dispatch": "n_jobs",
+    "max_tasks_per_child": 1
+  },
+  "output": {
+    "directory": "data/homodyne_general/new",
+    "filename_template": "Raw_Graph_Data_w_{weight:.1f}_r_{squeezing:.1f}_phi_{angle:.4f}.pkl",
+    "resume": true,
+    "overwrite": false
+  }
+}

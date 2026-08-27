@@ -15,4 +15,5 @@ AUTOSCALE_SCRIPT = (
     PROJECT_ROOT
     / "external"
     / "autoscale"
-    / "autoScale.py")
+    / "autoScale.py"
+)
