@@ -1,4 +1,3 @@
-
 import numpy as np
 import networkx as nx
 import os
@@ -223,5 +222,5 @@ for weight in weight_values:
             # you only lose the progress of the current L, not the whole p.
             with open(file_name, 'wb') as f:
                 pickle.dump(data_to_save, f)
-            
+               
 print("\nSimulation completed successfully! All topological data has been saved.")
