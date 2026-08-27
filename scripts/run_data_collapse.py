@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from monitored_cluster_states.paths import (
-    RAW_DATA_DIR,
+    DATA_DIR,
     SCALING_RESULTS_DIR,
     AUTOSCALE_SCRIPT,
 )
@@ -39,9 +39,8 @@ from monitored_cluster_states.paths import (
 
 # File path to the topological data (pickle file).
 DATA_FILE = (
-    RAW_DATA_DIR
+    DATA_DIR
     / "vertex_deletion"
-    / "square"
     / "Raw_Graph_Data_w_1.0.pkl"
 )
 
@@ -49,9 +48,7 @@ DATA_FILE = (
 OUTPUT_DIR = SCALING_RESULTS_DIR / "vertex_deletion"
 
 # Use the corrected Python 3 autoScale file supplied previously.
-AUTOSCALE_SCRIPT = Path(
-    r"C:\Users\megido\Downloads\thesis\QUANTUM NETWORKS\autoScale-main\autoScale.py"
-)
+# AUTOSCALE_SCRIPT = AUTOSCALE_SCRIPT
 
 R_VALUE = 5
 MIN_L_THRESHOLD = 300
@@ -590,8 +587,8 @@ def scaling_plot(
             & np.isfinite(scaled_y)
             & np.isfinite(entropy_sems[i, :])
             & (entropy_sems[i, :] > 0.0)
-            & (scaled_x >= MIN_SCALED_X)
-            & (scaled_x <= MAX_SCALED_X)
+            # & (scaled_x >= MIN_SCALED_X)
+            # & (scaled_x <= MAX_SCALED_X)
         )
         axis.plot(
             scaled_x[in_fit_window],
@@ -634,7 +631,7 @@ def scaling_plot(
     colorbar.set_label("System size $L$", fontsize=14)
     colorbar.ax.tick_params(labelsize=12)
 
-    axis.set_xlim(MIN_SCALED_X, MAX_SCALED_X)
+    # axis.set_xlim(MIN_SCALED_X, MAX_SCALED_X)
     axis.grid(True, alpha=0.3, linestyle="--")
     figure.tight_layout()
     plt.show()
@@ -709,8 +706,8 @@ def main() -> None:
     generated_files, valid_counts = export_entropy_files(
         p_values,
         dimensions,
-        percolation_means,
-        percolation_sems,
+        entropy_means,
+        entropy_sems,
         OUTPUT_DIR,
     )
     _, included_sizes = create_master_file(
@@ -733,8 +730,8 @@ def main() -> None:
     scaling_plot(
         p_values,
         dimensions,
-        percolation_means,
-        percolation_sems,
+        entropy_means,
+        entropy_sems,
         included_sizes,
         best_xc,
         best_a,
