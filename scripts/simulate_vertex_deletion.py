@@ -7,6 +7,8 @@ import random
 from joblib import Parallel, delayed 
 import multiprocessing
 
+from monitored_cluster_states.paths import RAW_DATA_DIR
+
 
 
 # ==========================================
@@ -145,9 +147,11 @@ weight_values = [1.0]
 REALIZATIONS = 1000
 lattice_type = 'square' 
 
-repo_path = r"data_files" 
-str_folder = f"data_topology_{str(lattice_type)}_reps_2"
-data_folder = os.path.join(repo_path, str_folder)
+str_folder = f"data_topology_{lattice_type}"
+data_folder = RAW_DATA_DIR / str_folder
+
+# Create the folder if it does not exist
+data_folder.mkdir(parents=True, exist_ok=True)
 os.makedirs(data_folder, exist_ok=True)
 
 total_cores = multiprocessing.cpu_count()
