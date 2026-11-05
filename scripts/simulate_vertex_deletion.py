@@ -7,12 +7,37 @@ import random
 from joblib import Parallel, delayed 
 import multiprocessing
 
-from monitored_cluster_states.paths import RAW_DATA_DIR
-
+from monitored_cluster_states.paths import RAW_DATA_DIR, DATA_DIR
 
 
 # ==========================================
-# 0. GRAPH GENERATION & MEASUREMENT
+# 0. PARAMETER SETUP 
+# ==========================================
+#dimensions = np.array([50, 100, 150, 200, 250, 300, 350, 400, 450]) 
+dimensions = np.array([100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900]) 
+#dimensions = np.array([650,700,750,800,850]) 
+# p_data = np.linspace(0.3, 0.5, 150)
+p_data = np.array([0.4070])
+weight_values = [1.0] 
+REALIZATIONS = 500
+lattice_type = 'square' 
+
+# str_folder = f"data_topology_{lattice_type}"
+# data_folder = RAW_DATA_DIR / str_folder
+
+str_folder = f"vertex_deletion"
+data_folder = DATA_DIR / str_folder
+
+# Create the folder if it does not exist
+data_folder.mkdir(parents=True, exist_ok=True)
+os.makedirs(data_folder, exist_ok=True)
+
+total_cores = multiprocessing.cpu_count()
+cores_to_use = max(1, 5) 
+
+
+# ==========================================
+# 1. GRAPH GENERATION & MEASUREMENT
 # ==========================================
 def measurement_q(lattice_type, p_remove, x, y, weight):
     if lattice_type == 'square':
@@ -42,7 +67,7 @@ def measurement_q(lattice_type, p_remove, x, y, weight):
 
 
 # ==========================================
-# 1. TOPOLOGICAL EXTRACTION FUNCTION
+# 2. TOPOLOGICAL EXTRACTION FUNCTION
 # ==========================================
 def extract_graph_data_all(G, G_meas, cut):
     """
@@ -136,33 +161,14 @@ def worker_realization(lattice_type, p, L, weight, cut_x):
     lcc_size, eigenvalues, dv_entropy = extract_graph_data_all(G, G_meas, cut_x)
     return lcc_size, eigenvalues, dv_entropy
 
-# ==========================================
-# 2. PARAMETER SETUP 
-# ==========================================
-#dimensions = np.array([50, 100, 150, 200, 250, 300, 350, 400, 450]) 
-dimensions = np.array([500, 550, 600, 650, 700, 750]) 
-#dimensions = np.array([650,700,750,800,850]) 
-p_data = np.linspace(0.3, 0.5, 150)
-weight_values = [1.0] 
-REALIZATIONS = 1000
-lattice_type = 'square' 
 
-str_folder = f"data_topology_{lattice_type}"
-data_folder = RAW_DATA_DIR / str_folder
-
-# Create the folder if it does not exist
-data_folder.mkdir(parents=True, exist_ok=True)
-os.makedirs(data_folder, exist_ok=True)
-
-total_cores = multiprocessing.cpu_count()
-cores_to_use = max(1, 50) 
 
 # ==========================================
 # 3. MAIN SIMULATION LOOP (PARALLELIZED & BULLETPROOF)
 # ==========================================
 for weight in weight_values:
     print(f"\n--- Generating Topologies for weight={weight} ---")
-    file_name = os.path.join(data_folder, f'Raw_Graph_Data_w_{weight}.pkl')
+    file_name = os.path.join(data_folder, f'Raw_Graph_Data_w_{weight}_PT.pkl')
     
     # --- 1. LOAD BACKUP IF IT EXISTS ---
     if os.path.exists(file_name):
