@@ -1,53 +1,103 @@
-import numpy as np
-import networkx as nx
+from pathlib import Path
 import os
 import pickle
-from tqdm.auto import tqdm
 import random
-from joblib import Parallel, delayed 
-import multiprocessing
 
-from monitored_cluster_states.paths import RAW_DATA_DIR, DATA_DIR
+import networkx as nx
+import numpy as np
 
+
+STORE_ALL_REALIZATIONS = False  # True to store all realizations, False to store only averages and variances.
 
 # ==========================================
 # 0. PARAMETER SETUP 
 # ==========================================
-#dimensions = np.array([50, 100, 150, 200, 250, 300, 350, 400, 450]) 
-dimensions = np.array([100, 150, 200, 250, 300, 350, 400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900]) 
-#dimensions = np.array([650,700,750,800,850]) 
-# p_data = np.linspace(0.3, 0.5, 150)
-p_data = np.array([0.4070])
-weight_values = [1.0] 
-REALIZATIONS = 500
-lattice_type = 'square' 
 
-# str_folder = f"data_topology_{lattice_type}"
-# data_folder = RAW_DATA_DIR / str_folder
+L_MIN = 100
+L_MAX = 900
+L_STEP = 50
 
-str_folder = f"vertex_deletion"
-data_folder = DATA_DIR / str_folder
+dimensions = np.arange(L_MIN, L_MAX + 1, L_STEP, dtype=int)
 
-# Create the folder if it does not exist
+
+# ==========================================
+# VERTEX-DELETION PROBABILITIES
+# ==========================================
+
+# defined as (start, stop, number of points).
+P_INTERVALS = [
+    (0.00, 0.38, 15),    # p<p_c
+    (0.38, 0.42, 100),   # p near p_c
+    (0.42, 1.00, 30),    # p>p_c
+]
+
+# Combine intervals, remove repeated endpoints, and sort.
+p_data = np.unique(np.round( np.concatenate([np.linspace(start, stop, number) for start, stop, number in P_INTERVALS]), decimals=12))
+
+
+weight_values = [1.0] # this can be an array of weights, e.g., [1.0, 2.0, 3.0], for the CV case
+
+REALIZATIONS = 1000
+
+lattice_type = 'square'
+
+
+data_folder = Path(__file__).resolve().parents[1] / "data_files" / "vertex_deletion"
 data_folder.mkdir(parents=True, exist_ok=True)
-os.makedirs(data_folder, exist_ok=True)
 
-total_cores = multiprocessing.cpu_count()
-cores_to_use = max(1, 5) 
+# Reproducible initial random seed.
+SEED = 12345
+
 
 
 # ==========================================
 # 1. GRAPH GENERATION & MEASUREMENT
 # ==========================================
 def measurement_q(lattice_type, p_remove, x, y, weight):
+    """
+    Generate a lattice and independently delete vertices with probability p_remove.
+
+    Notes
+    -----
+    Triangular, hexagonal, and cubic lattices were also used in earlier
+    simulations and are retained here. The current study focuses on the
+    square lattice with periodic boundary conditions.
+
+    Parameters
+    ----------
+    lattice_type : str
+        Lattice geometry: 'square', 'triangular', 'hexagonal', or 'cubic'.
+    p_remove : float
+        Probability of deleting each vertex, between 0 and 1.
+    x, y : int
+        Size parameters passed to the lattice generator.
+        The cubic lattice uses dimensions (x, y, y).
+    weight : float or tuple of float
+        Constant edge weight or bounds (a, b) for independent, uniformly
+        distributed weights assigned to surviving edges.
+
+    Returns
+    -------
+    G : networkx.Graph
+        Original lattice before vertex deletion.
+    G_meas : networkx.Graph
+        Remaining graph with edge weights assigned.
+
+    Raises
+    ------
+    ValueError
+        If lattice_type is unsupported or weight has an invalid shape.
+    """
     if lattice_type == 'square':
-        G = nx.grid_2d_graph(x, y, periodic=False)
+        G = nx.grid_2d_graph(x, y, periodic=True)
     elif lattice_type == 'triangular':
         G = nx.triangular_lattice_graph(x, y, periodic=False)
     elif lattice_type == 'hexagonal':
         G = nx.hexagonal_lattice_graph(x, y, periodic=False)
     elif lattice_type == 'cubic':
         G = nx.grid_graph(dim=(x, y, y), periodic=False)
+    else:
+        raise ValueError(f"Unknown lattice type: {lattice_type}")
     
     G_meas = G.copy()
     nodes_removed = [node for node in G if random.random() < p_remove]
@@ -147,90 +197,69 @@ def extract_graph_data_all(G, G_meas, cut):
     return classical_LCC_size, eigenvalues, dv_entropy
 
 
-# ==========================================
-# NEW: THE WORKER FUNCTION (Updated for DV)
-# ==========================================
-def worker_realization(lattice_type, p, L, weight, cut_x):
-    """
-    This function does exactly ONE realization. 
-    It will be executed simultaneously across dozens of different cores.
-    Now uses extract_graph_data_all to get LCC, CV (eigenvalues), and DV (entropy).
-    """
-    G, G_meas = measurement_q(lattice_type, p, L, L, weight)
-    # Ensure you are using the 'extract_graph_data_all' function defined previously
-    lcc_size, eigenvalues, dv_entropy = extract_graph_data_all(G, G_meas, cut_x)
-    return lcc_size, eigenvalues, dv_entropy
 
+def main():
+    random.seed(SEED)
+    data_folder.mkdir(parents=True, exist_ok=True)
 
+    for weight in weight_values:
+        print(f"\nVertex deletion: weight = {weight}")
 
-# ==========================================
-# 3. MAIN SIMULATION LOOP (PARALLELIZED & BULLETPROOF)
-# ==========================================
-for weight in weight_values:
-    print(f"\n--- Generating Topologies for weight={weight} ---")
-    file_name = os.path.join(data_folder, f'Raw_Graph_Data_w_{weight}_PT.pkl')
-    
-    # --- 1. LOAD BACKUP IF IT EXISTS ---
-    if os.path.exists(file_name):
-        print(f"[INFO] Backup found! Loading saved data from {file_name}...")
-        with open(file_name, 'rb') as f:
-            data_to_save = pickle.load(f)
-    else:
-        # Initialize fresh dictionary if no file exists
         data_to_save = {
-            'p_values': p_data,
-            'L_values': dimensions,
-            'realizations': REALIZATIONS,
-            'weight': weight,
-            'results': {} 
+            "p_values": p_data.copy(),
+            "L_values": dimensions.copy(),
+            "realizations": REALIZATIONS,
+            "weight": weight,
+            "lattice_type": lattice_type,
+            "periodic": True,
+            "store_all_realizations": STORE_ALL_REALIZATIONS,
+            "seed": SEED,
+            "results": {},
         }
-    
-    for p in tqdm(p_data, desc="Calculating probabilities", position=0, leave=True):
-        
-        # --- 2. SAFE INITIALIZATION FOR p ---
-        # Only create the dictionary for 'p' if it hasn't been created yet.
-        # This prevents overwriting partial progress!
-        if p not in data_to_save['results']:
-            data_to_save['results'][p] = {}
-        
-        for L in dimensions:
-            
-            # --- 3. GRANULAR CHECKPOINTING FOR L ---
-            # If this specific L has already been fully completed (200 realizations), skip it.
-            if L in data_to_save['results'][p] and len(data_to_save['results'][p][L].get('LCC_sizes', [])) == REALIZATIONS:
-                continue 
-            
-            # Prepare clean lists for this L (including the new dv_entropies)
-            data_to_save['results'][p][L] = {
-                'LCC_sizes': [], 
-                'eigenvalues': [], 
-                'dv_entropies': []
-            }
-            
-            # --- CALCULATE CENTRAL CUT ---
-            G_dummy, _ = measurement_q(lattice_type, 0.0, L, L, weight)
-            pos_OG = nx.get_node_attributes(G_dummy, 'pos')
-            if not pos_OG: pos_OG = {node: node for node in G_dummy.nodes()}
-            all_x_coords = sorted(list(set([coords[0] for coords in pos_OG.values()])))
-            mid_idx = len(all_x_coords) // 2
-            cut_x = (all_x_coords[mid_idx] + all_x_coords[mid_idx - 1]) / 2.0
-            
-            # --- PARALLELIZATION ---
-            parallel_results = Parallel(n_jobs=cores_to_use)(
-                delayed(worker_realization)(lattice_type, p, L, weight, cut_x) 
-                for _ in range(REALIZATIONS)
-            )
-            
-            # Unpack the 3 variables and append them to the dictionaries
-            for lcc_size, eigenvalues, dv_entropy in parallel_results:
-                data_to_save['results'][p][L]['LCC_sizes'].append(lcc_size)
-                data_to_save['results'][p][L]['eigenvalues'].append(eigenvalues)
-                data_to_save['results'][p][L]['dv_entropies'].append(dv_entropy)
 
-            # --- 4. ULTRA-FREQUENT SAVING ---
-            # Saving inside the L loop guarantees that if the script crashes, 
-            # you only lose the progress of the current L, not the whole p.
-            with open(file_name, 'wb') as f:
-                pickle.dump(data_to_save, f)
-               
-print("\nSimulation completed successfully! All topological data has been saved.")
+        for p in p_data:
+            data_to_save["results"][p] = {}
+
+            for L in dimensions:
+                L = int(L)
+                cut_x = L // 2 - 0.5
+                entry = {"LCC_sizes": [], "eigenvalues": [], "dv_entropies": []}
+
+                print(f"p = {p:.5f}, L = {L}")
+
+                for realization in range(REALIZATIONS):
+                    G, G_meas = measurement_q(lattice_type, p, L, L, weight)
+                    lcc_size, eigenvalues, dv_entropy = extract_graph_data_all(G, G_meas, cut_x)
+
+                    entry["LCC_sizes"].append(lcc_size)
+                    entry["eigenvalues"].append(eigenvalues)
+                    entry["dv_entropies"].append(dv_entropy)
+
+                    del G, G_meas
+
+                if STORE_ALL_REALIZATIONS:
+                    data_to_save["results"][p][L] = entry
+                else:
+                    lcc_sizes = np.asarray(entry["LCC_sizes"], dtype=float)
+                    dv_entropies = np.asarray(entry["dv_entropies"], dtype=float)
+                    number_realizations = len(lcc_sizes)
+
+                    data_to_save["results"][p][L] = {
+                        "number_realizations": number_realizations,
+                        "mean_LCC_size": float(lcc_sizes.mean()),
+                        "sem_LCC_size": float(lcc_sizes.std(ddof=1) / np.sqrt(number_realizations)) if number_realizations > 1 else None,
+                        "mean_dv_entropy": float(dv_entropies.mean()),
+                        "sem_dv_entropy": float(dv_entropies.std(ddof=1) / np.sqrt(number_realizations)) if number_realizations > 1 else None,
+                        "cv_eigenvalue": float(weight**2),
+                        "mean_cv_eigenvalue_count": float(dv_entropies.mean()),
+                    }
+
+        file_name = data_folder / f"vertex_deletion_results_PBC_w_{weight}.pkl"
+        with file_name.open("wb") as f:
+            pickle.dump(data_to_save, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+        print(f"Saved: {file_name}")
+
+
+if __name__ == "__main__":
+    main()
