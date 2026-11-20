@@ -20,10 +20,6 @@ L_STEP = 50
 dimensions = np.arange(L_MIN, L_MAX + 1, L_STEP, dtype=int)
 
 
-# ==========================================
-# VERTEX-DELETION PROBABILITIES
-# ==========================================
-
 # defined as (start, stop, number of points).
 P_INTERVALS = [
     (0.00, 0.38, 15),    # p<p_c
