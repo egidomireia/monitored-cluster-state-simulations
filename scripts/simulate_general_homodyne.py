@@ -30,16 +30,11 @@ P_INTERVALS = [
 ]
 
 # Combine intervals, remove repeated endpoints, and sort.
-# p_data = np.unique(np.round( np.concatenate([np.linspace(start, stop, number) for start, stop, number in P_INTERVALS]), decimals=12))
-# p_data = np.asarray([0.0, 0.3, 0.38, 0.45, 0.75, 1.0], dtype=float)
-# p_data = np.unique(np.concatenate([np.linspace(0.0, 0.3, 4), np.linspace(0.35, 0.5, 16), np.linspace(0.6, 1.0, 5)]))
+p_data = np.unique(np.round( np.concatenate([np.linspace(start, stop, number) for start, stop, number in P_INTERVALS]), decimals=12))
 
-
-
-p_data = np.array([0.6])    
-phi_values = np.r_[0.0, np.logspace(-12, -7, 26)].tolist()
-tolerance_values = np.r_[0.0, np.logspace(-12, -7, 26)].tolist()
-
+# p_data = np.array([0.6])    
+# phi_values = np.r_[0.0, np.logspace(-12, -7, 26)].tolist()
+# tolerance_values = np.r_[0.0, np.logspace(-12, -7, 26)].tolist()
 
 
 weight_values = [1.0]
